@@ -1,57 +1,110 @@
 # MCP Code Editor ("The Typist")
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Status: Active Development](https://img.shields.io/badge/Status-Active%20Development-blue.svg)](https://github.com/yourusername/mcp-code-editor)
+[![Powered by OpenAI Compatible API](https://img.shields.io/badge/Powered%20by-OpenAI%20Compatible%20API-orange.svg)](https://github.com/openai/openai-node)
+
 A custom MCP (Model Context Protocol) Server that acts as a "code writing assistant" to save your primary AI tokens and expenses.
 
 With this setup, your primary AI (such as Claude-3.5-Sonnet or Gemini-1.5-Pro) in Antigravity/Cursor acts purely as a **Logic Architect** that designs program flows and system architectures, while the heavy lifting of writing and editing long files is delegated to a cheaper third-party LLM (such as Gemini-1.5-Flash, Llama-3, or DeepSeek) via MCP Tools.
 
-## Core Features
+---
 
-This MCP Server registers 4 tools:
-1.  **`write_code`**: Generates new code based on logical instructions and returns the code block directly in the chat without writing it to disk (useful for review).
+## 🚀 Architecture Overview
+
+The Typist server decouples high-level reasoning from low-level code generation, optimizing cost and speed.
+
+```mermaid
+sequenceDiagram
+    participant LA as Logic Architect (Primary AI)
+    participant MCP as MCP Code Editor (Server)
+    participant C as Cheap Coder LLM
+    participant FS as File System
+
+    LA->>MCP: Call Tool (e.g., create_file, edit_file)
+    Note over MCP: Validates request, formats prompt
+    MCP->>C: Send Code Generation Request (Instruction + Context)
+    C-->>MCP: Return Generated Code
+    alt create_file or edit_file
+        MCP->>FS: Write/Overwrite File
+        FS-->>MCP: Success Confirmation
+    end
+    MCP-->>LA: Tool Execution Result (Success/Code Block)
+    LA->>LA: Summarize changes, continue logic flow
+```
+
+---
+
+## ✨ Core Features
+
+This MCP Server registers 4 essential tools for file manipulation and testing:
+
+1.  **`write_code`**: Generates new code based on logical instructions and returns the code block directly in the chat without writing it to disk (useful for quick review).
 2.  **`create_file`**: Generates code based on instructions and writes it directly as a new file at the specified path.
 3.  **`edit_file`**: Reads an existing file, sends its contents and edit instructions to the cheap LLM, then overwrites the file completely with the modified code.
 4.  **`check_connection`**: Tests connectivity to the configured cheap LLM provider, printing API latency and the raw response to help verify settings.
 
-## Installation & Setup
+---
 
-1. Clone or open this folder in your terminal.
-2. Install the dependencies:
-   ```bash
-   npm install
-   ```
-3. Copy `.env.example` to `.env` and fill in your API Key:
-   ```bash
-   cp .env.example .env
-   ```
-4. Configure `.env` as needed:
-   ```env
-   CODER_API_URL=https://api.cometapi.com/v1/chat/completions
-   CODER_API_KEY=your_api_key_here
-   CODER_MODEL=gpt-4o-mini
-   ```
+## ⚙️ Installation & Setup
 
-> **Note**: This server uses a standard OpenAI-compatible client, so you can easily point it to OpenRouter, DeepSeek, Groq, or even a local Ollama instance by changing `CODER_API_URL`, `CODER_API_KEY`, and `CODER_MODEL`.
+Follow these steps to get your Typist server running locally.
 
-## Registering to Antigravity / Cursor
+### Step 1: Project Setup
 
-Add the following config to your global MCP configuration file (e.g. `mcp_config.json` in Antigravity or Desktop App settings):
+Clone or open this folder in your terminal.
+
+### Step 2: Install Dependencies
+
+```bash
+npm install
+```
+
+### Step 3: Configure Environment Variables
+
+Copy the example file and fill in your API Key and endpoint details.
+
+```bash
+cp .env.example .env
+```
+
+Edit the newly created `.env` file:
+
+> **Note**: This server uses a standard OpenAI-compatible client, so you can easily point it to OpenRouter, DeepSeek, Groq, or even a local Ollama instance by changing the configuration below.
+
+```env
+# .env configuration example
+CODER_API_URL=https://api.cometapi.com/v1/chat/completions
+CODER_API_KEY=your_api_key_here
+CODER_MODEL=gpt-4o-mini
+```
+
+---
+
+## 🔌 Registering to Antigravity / Cursor
+
+You must inform your primary AI environment (Antigravity/Cursor) where to find this server. Add the following configuration to your global MCP configuration file (e.g., `mcp_config.json`):
+
+> ⚠️ **Crucial**: Make sure to adjust the absolute path to `index.js` based on where the repository is cloned on your system.
 
 ```json
 {
   "mcpServers": {
     "mcp-code-editor": {
       "command": "node",
-      "args": ["/home/murtix/Projects/Apps/MCP-CodeEditor/index.js"]
+      "args": ["/path/to/your/MCP-CodeEditor/index.js"]
     }
   }
 }
 ```
 
-*Make sure to adjust the absolute path to `index.js` based on where the repository is cloned on your system.*
+---
 
-## Agent Rules (.clauderules / .cursorrules)
+## 🧠 Agent Rules (.clauderules / .cursorrules)
 
-To guide your primary AI to delegate coding tasks, copy the following rules to a `.clauderules` or `.cursorrules` file in the root of the project you are working on:
+To guide your primary AI to delegate coding tasks effectively, copy the following rules to a `.clauderules` or `.cursorrules` file in the root of the project you are working on:
+
+> These rules enforce the separation of concerns between the Architect and the Coder.
 
 ```markdown
 # Rule: Logic Architect & Code Writing Delegation
