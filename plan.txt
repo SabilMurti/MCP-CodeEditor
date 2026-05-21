@@ -1,0 +1,114 @@
+Pilihan yang sangat rasional! Menggunakan API *aggregator* pihak ketiga seperti CometAPI adalah jalan tengah yang sempurna: kamu tidak perlu membebani perangkat keras komputer seperti saat memakai Ollama, tapi tetap bisa menikmati harga token yang jauh lebih murah (bahkan ada model yang digratiskan) dibandingkan *direct API*.
+Karena infrastrukturnya menggunakan *environment* Linux, kita akan merakit server MCP sederhana menggunakan **Node.js**. CometAPI kebetulan menggunakan format *endpoint* yang kompatibel dengan standar OpenAI, sehingga sangat mudah diintegrasikan.
+Berikut adalah *blueprint* dan panduan langkah demi langkah merakit "Tukang Ketik" milikmu sendiri:
+### Fase 1: Persiapan CometAPI
+ 1. Buka dashboard CometAPI dan buat **API Key**.
+ 2. Pilih model AI murah yang ingin dijadikan "Tukang Ketik". (Rekomendasi: gemini-1.5-flash atau model sekelas Llama/Qwen yang harganya fraksional).
+ 3. Catat API Key dan nama modelnya.
+### Fase 2: Merakit MCP Server Kustom
+Buka terminal Ubuntu kamu, lalu kita buat direktori khusus untuk menyimpan jembatan MCP ini.
+```bash
+mkdir mcp-tukang-ketik
+cd mcp-tukang-ketik
+npm init -y
+npm install @modelcontextprotocol/sdk axios dotenv
+
+```
+Buat sebuah file bernama index.js (bisa menggunakan editor CLI seperti nano index.js atau editor lain). Berikut adalah struktur dasar kodenya:
+```javascript
+#!/usr/bin/env node
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import axios from "axios";
+
+// Konfigurasi CometAPI
+const COMET_API_KEY = "MASUKKAN_API_KEY_COMETAPI_KAMU_DISINI";
+const MODEL_NAME = "gemini-1.5-flash"; // Ganti sesuai model yang dipilih
+const COMET_BASE_URL = "https://api.cometapi.com/v1/chat/completions"; 
+
+const server = new Server({
+  name: "mcp-cometapi-coder",
+  version: "1.0.0",
+}, {
+  capabilities: { tools: {} }
+});
+
+// Daftarkan Tool "Tulis_Kode" agar Claude tahu
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [{
+    name: "tulis_kode_comet",
+    description: "Gunakan tool ini untuk menulis kode panjang. Berikan instruksi detail dan spesifik file yang mau diedit.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        instruksi: { type: "string", description: "Instruksi logika dari AI utama" },
+        bahasa: { type: "string", description: "Contoh: php, javascript, tsx" }
+      },
+      required: ["instruksi", "bahasa"]
+    }
+  }]
+}));
+
+// Eksekusi Tool saat dipanggil oleh Claude
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name === "tulis_kode_comet") {
+    const { instruksi, bahasa } = request.params.arguments;
+    
+    try {
+      const response = await axios.post(COMET_BASE_URL, {
+        model: MODEL_NAME,
+        messages: [
+          { role: "system", content: `Kamu adalah senior programmer. Tulis kode murni dalam bahasa ${bahasa} tanpa basa-basi penjelasan.` },
+          { role: "user", content: instruksi }
+        ]
+      }, {
+        headers: {
+          "Authorization": `Bearer ${COMET_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      const hasilKode = response.data.choices[0].message.content;
+      
+      return {
+        content: [{ type: "text", text: hasilKode }]
+      };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Error dari CometAPI: ${error.message}` }]
+      };
+    }
+  }
+  throw new Error("Tool tidak ditemukan");
+});
+
+// Jalankan Server via Standard Input/Output (Terminal)
+const transport = new StdioServerTransport();
+await server.connect(transport);
+
+```
+*(Jangan lupa tambahkan "type": "module" di dalam file package.json agar file di atas bisa berjalan dengan format import).*
+### Fase 3: Daftarkan ke Antigravity
+Setelah script Node.js siap, kamu hanya perlu memberi tahu Antigravity tentang keberadaan script ini.
+Cari file konfigurasi MCP pada Antigravity (biasanya berupa file .json di folder konfigurasi global). Tambahkan blok berikut:
+```json
+{
+  "mcpServers": {
+    "tukang_ketik": {
+      "command": "node",
+      "args": ["/absolute/path/menuju/folder/mcp-tukang-ketik/index.js"]
+    }
+  }
+}
+
+```
+*Pastikan mengubah /absolute/path/... dengan lokasi direktori yang benar di sistem operasi kamu (misal: /home/user/mcp-tukang-ketik/index.js).*
+### Fase 4: Modifikasi Rules / System Prompt
+Agar metode ini bekerja, kamu harus memodifikasi *system prompt* atau aturan utama di proyek yang sedang dikerjakan. Contoh kalimat *rules* yang wajib dipasang:
+> *"Kamu bertindak sebagai Arsitek Logika. Kamu memiliki akses ke tool 'tulis_kode_comet'. Setiap kali pengguna meminta untuk membuat file komponen React, membuat file Laravel Controller, atau menulis blok kode lebih dari 20 baris, kamu DILARANG menulisnya sendiri. Kamu WAJIB menyusun logika berfikirnya saja, lalu memanggil tool 'tulis_kode_comet' untuk menulis kodenya. Setelah kode dikembalikan oleh tool, langsung berikan ke pengguna."*
+> 
+### Cara Pengujian
+Jalankan Antigravity seperti biasa, lalu cobalah *prompt* pancingan yang berat. Misalnya:
+*"Buatkan saya file AuthController.php yang lengkap dengan logika login, register, dan reset password menggunakan template bawaan."*
+Jika konfigurasinya berhasil, kamu akan melihat log di terminal bahwa Claude hanya berpikir sebentar, lalu memanggil *tool* tulis_kode_comet, dan beberapa detik kemudian barisan kode panjang akan muncul hasil dari *generate* CometAPI.

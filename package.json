@@ -1,0 +1,17 @@
+{
+  "name": "mcp-code-editor",
+  "version": "1.0.0",
+  "description": "MCP Server that delegates code generation and editing tasks to a cheaper third-party LLM provider",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "mcp-code-editor": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "dotenv": "^16.4.5"
+  }
+}
