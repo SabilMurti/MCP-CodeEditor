@@ -84,45 +84,45 @@ const server = new Server({
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
-      name: "tulis_kode",
-      description: "Menghasilkan kode baru berdasarkan instruksi logika tanpa menulis ke disk. Berguna jika ingin memeriksa kode sebelum menyimpannya.",
+      name: "write_code",
+      description: "Generate new code based on instructions without writing it to disk. Useful for reviewing code before saving.",
       inputSchema: {
         type: "object",
         properties: {
-          instruksi: { type: "string", description: "Instruksi detail logika/kode yang ingin dibuat" },
-          bahasa: { type: "string", description: "Bahasa pemrograman (contoh: javascript, php, python, HTML)" }
+          instruction: { type: "string", description: "Detailed instruction/logic for the code to be created" },
+          language: { type: "string", description: "Programming language (e.g. javascript, php, python, html)" }
         },
-        required: ["instruksi", "bahasa"]
+        required: ["instruction", "language"]
       }
     },
     {
-      name: "buat_file",
-      description: "Membuat file baru di path tertentu dan mengisinya dengan kode yang di-generate berdasarkan instruksi logika.",
+      name: "create_file",
+      description: "Create a new file at a specific path and write code generated based on logic/instructions.",
       inputSchema: {
         type: "object",
         properties: {
-          filePath: { type: "string", description: "Path file tujuan (bisa relatif terhadap current directory atau absolut)" },
-          instruksi: { type: "string", description: "Instruksi detail logika/kode yang harus ditulis di file baru" },
-          bahasa: { type: "string", description: "Bahasa pemrograman file tersebut" }
+          filePath: { type: "string", description: "Target file path (can be relative to current directory or absolute)" },
+          instruction: { type: "string", description: "Detailed instruction/logic for the code to write to the new file" },
+          language: { type: "string", description: "Programming language of the file" }
         },
-        required: ["filePath", "instruksi", "bahasa"]
+        required: ["filePath", "instruction", "language"]
       }
     },
     {
       name: "edit_file",
-      description: "Membaca file yang sudah ada, mengirimkan konten lamanya beserta instruksi edit ke AI murah, lalu menulis ulang file tersebut dengan kode baru hasil modifikasi.",
+      description: "Read an existing file, send its current contents and edit instructions to the AI, then overwrite the file with the modified code.",
       inputSchema: {
         type: "object",
         properties: {
-          filePath: { type: "string", description: "Path file yang ingin diedit" },
-          instruksi: { type: "string", description: "Instruksi perubahan, modifikasi, atau penambahan fitur baru ke file tersebut" }
+          filePath: { type: "string", description: "Path of the file to edit" },
+          instruction: { type: "string", description: "Instruction for changes, modifications, or adding new features to the file" }
         },
-        required: ["filePath", "instruksi"]
+        required: ["filePath", "instruction"]
       }
     },
     {
-      name: "cek_koneksi",
-      description: "Memeriksa koneksi ke API AI murah yang dikonfigurasi di berkas .env.",
+      name: "check_connection",
+      description: "Check the connection to the AI API configured in the .env file.",
       inputSchema: {
         type: "object",
         properties: {}
@@ -136,11 +136,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
-    if (name === "tulis_kode") {
-      const { instruksi, bahasa } = args;
-      const systemPrompt = `Kamu adalah asisten AI programmer senior yang sangat kompeten. Tulis kode murni dalam bahasa ${bahasa} tanpa basa-basi penjelasan, tanpa markdown pembungkus di luar kode (jangan gunakan backticks \`\`\` kecuali jika kamu sedang menulis file markdown), dan tanpa kata pengantar.`;
+    if (name === "write_code") {
+      const { instruction, language } = args;
+      const systemPrompt = `You are a highly competent senior AI programmer assistant. Write pure code in ${language} without any explanations, conversational filler, markdown wrappers outside the code (do not use \`\`\` backticks unless you are writing a markdown file), and without introductory text.`;
       
-      const rawCode = await callLLM(systemPrompt, instruksi);
+      const rawCode = await callLLM(systemPrompt, instruction);
       const cleanCode = stripMarkdown(rawCode);
 
       return {
@@ -148,15 +148,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    if (name === "buat_file") {
-      const { filePath, instruksi, bahasa } = args;
+    if (name === "create_file") {
+      const { filePath, instruction, language } = args;
       
       // Resolve path
       const resolvedPath = path.resolve(process.cwd(), filePath);
       
-      const systemPrompt = `Kamu adalah asisten AI programmer senior yang sangat kompeten. Tulis kode murni lengkap untuk file baru dalam bahasa ${bahasa} tanpa penjelasan, tanpa kata pengantar, dan tanpa markdown pembungkus (seperti \`\`\`). Berikan isi file yang lengkap.`;
+      const systemPrompt = `You are a highly competent senior AI programmer assistant. Write complete pure code for a new file in ${language} without any explanations, conversational filler, and without markdown wrappers (like \`\`\`). Provide the complete contents of the file.`;
       
-      const rawCode = await callLLM(systemPrompt, instruksi);
+      const rawCode = await callLLM(systemPrompt, instruction);
       const cleanCode = stripMarkdown(rawCode);
 
       // Ensure directory exists
@@ -165,12 +165,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       await fs.writeFile(resolvedPath, cleanCode, "utf8");
 
       return {
-        content: [{ type: "text", text: `Sukses membuat file di: ${resolvedPath}\n\nIsi file:\n${cleanCode}` }]
+        content: [{ type: "text", text: `Successfully created file at: ${resolvedPath}\n\nFile contents:\n${cleanCode}` }]
       };
     }
 
     if (name === "edit_file") {
-      const { filePath, instruksi } = args;
+      const { filePath, instruction } = args;
       
       // Resolve path
       const resolvedPath = path.resolve(process.cwd(), filePath);
@@ -181,14 +181,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         currentContent = await fs.readFile(resolvedPath, "utf8");
       } catch (err) {
         return {
-          content: [{ type: "text", text: `Error: File tidak ditemukan di ${resolvedPath}. Jika ingin membuat file baru, gunakan tool 'buat_file'.` }],
+          content: [{ type: "text", text: `Error: File not found at ${resolvedPath}. If you want to create a new file, use the 'create_file' tool.` }],
           isError: true
         };
       }
 
-      const systemPrompt = `Kamu adalah asisten AI programmer senior yang sangat kompeten. Tulis kode murni hasil modifikasi lengkap tanpa penjelasan, tanpa kata pengantar, dan tanpa markdown pembungkus (seperti \`\`\`). Berikan kode lengkap isi file yang sudah diperbarui secara utuh.`;
+      const systemPrompt = `You are a highly competent senior AI programmer assistant. Write complete modified pure code without any explanations, conversational filler, and without markdown wrappers (like \`\`\`). Provide the complete updated contents of the file.`;
       
-      const userPrompt = `Berikut adalah konten asli dari file:\n---\n${currentContent}\n---\n\nInstruksi perubahan:\n${instruksi}\n\nTolong edit file tersebut sesuai instruksi dan kembalikan seluruh isi file yang baru secara lengkap dan utuh.`;
+      const userPrompt = `Here is the original content of the file:\n---\n${currentContent}\n---\n\nEdit instructions:\n${instruction}\n\nPlease edit the file according to the instructions and return the entire new file content completely and fully.`;
 
       const rawCode = await callLLM(systemPrompt, userPrompt);
       const cleanCode = stripMarkdown(rawCode);
@@ -197,13 +197,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       await fs.writeFile(resolvedPath, cleanCode, "utf8");
 
       return {
-        content: [{ type: "text", text: `Sukses mengedit file di: ${resolvedPath}\n\nKonten Baru:\n${cleanCode}` }]
+        content: [{ type: "text", text: `Successfully edited file at: ${resolvedPath}\n\nNew Content:\n${cleanCode}` }]
       };
     }
 
-    if (name === "cek_koneksi") {
-      const systemPrompt = "Kamu adalah asisten penguji koneksi. Jawab hanya dengan satu kata: 'OK'.";
-      const userPrompt = "Koneksi tes.";
+    if (name === "check_connection") {
+      const systemPrompt = "You are a connection test assistant. Respond with only one word: 'OK'.";
+      const userPrompt = "Connection test.";
       
       const startTime = Date.now();
       const rawResponse = await callLLM(systemPrompt, userPrompt);
@@ -212,14 +212,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const cleanResponse = stripMarkdown(rawResponse);
 
       return {
-        content: [{ type: "text", text: `Koneksi ke AI berhasil.\nEndpoint: ${API_URL}\nModel: ${MODEL_NAME}\nLatency: ${latency}ms\nRespon AI Mentah: ${cleanResponse}` }]
+        content: [{ type: "text", text: `Connection to AI successful.\nEndpoint: ${API_URL}\nModel: ${MODEL_NAME}\nLatency: ${latency}ms\nRaw AI Response: ${cleanResponse}` }]
       };
     }
 
-    throw new Error(`Tool ${name} tidak ditemukan`);
+    throw new Error(`Tool ${name} not found`);
   } catch (error) {
     return {
-      content: [{ type: "text", text: `Error mengeksekusi tool ${name}: ${error.message}` }],
+      content: [{ type: "text", text: `Error executing tool ${name}: ${error.message}` }],
       isError: true
     };
   }
