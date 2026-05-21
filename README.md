@@ -50,17 +50,24 @@ This MCP Server registers 4 essential tools for file manipulation and testing:
 
 Follow these steps to get your Typist server running locally.
 
-### Step 1: Project Setup
+### Option A: Local Execution (For Development/Testing)
+
+#### Step 1: Project Setup
 
 Clone or open this folder in your terminal.
 
-### Step 2: Install Dependencies
+```bash
+git clone https://github.com/yourusername/mcp-code-editor.git
+cd mcp-code-editor
+```
+
+#### Step 2: Install Dependencies
 
 ```bash
 npm install
 ```
 
-### Step 3: Configure Environment Variables
+#### Step 3: Configure Environment Variables
 
 Copy the example file and fill in your API Key and endpoint details.
 
@@ -79,13 +86,33 @@ CODER_API_KEY=your_api_key_here
 CODER_MODEL=gpt-4o-mini
 ```
 
+### Option B: Global Installation (Recommended for Daily Use)
+
+To run the server from any directory as a global command:
+
+#### Step 1: Install Globally
+
+Navigate to the project directory (if not already there) and run:
+
+```bash
+npm install -g .
+# OR use npm link if you plan on making local edits
+# npm link
+```
+
+#### Step 2: Configure Environment Variables
+
+Ensure your `.env` file is configured as described in Option A, Step 3. If running globally, the server will look for a configuration file named **`.mcp-code-editor.env`** in your user's home directory (`~/.mcp-code-editor.env`). Copy the contents of your local `.env` file into this global configuration file for persistent access.
+
 ---
 
 ## 🔌 Registering to Antigravity / Cursor
 
 You must inform your primary AI environment (Antigravity/Cursor) where to find this server. Add the following configuration to your global MCP configuration file (e.g., `mcp_config.json`):
 
-> ⚠️ **Crucial**: Make sure to adjust the absolute path to `index.js` based on where the repository is cloned on your system.
+> ⚠️ **Crucial**: Choose the configuration method that matches your installation option above.
+
+**If using Local Execution (Option A):** Adjust the absolute path to `index.js` based on where the repository is cloned on your system.
 
 ```json
 {
@@ -98,9 +125,21 @@ You must inform your primary AI environment (Antigravity/Cursor) where to find t
 }
 ```
 
+**If using Global Installation (Option B):** Use the package name directly as the command.
+
+```json
+{
+  "mcpServers": {
+    "mcp-code-editor": {
+      "command": "mcp-code-editor"
+    }
+  }
+}
+```
+
 ---
 
-## 🧠 Agent Rules (.clauderules / .cursorrules)
+## 🧠 Agent Rules (.clauderules / .cursorrules / gemini.md)
 
 To guide your primary AI to delegate coding tasks effectively, copy the following rules to a `.clauderules` or `.cursorrules` file in the root of the project you are working on:
 
@@ -112,6 +151,7 @@ To guide your primary AI to delegate coding tasks effectively, copy the followin
 You act as the **Logic Architect**. You have access to the MCP Code Editor tools (`write_code`, `create_file`, `edit_file`).
 
 ## Core Rules:
+
 1. **DO NOT Write Long Code Blocks Directly**: Whenever the user asks to create a new file (e.g. React component, Laravel Controller, Python script) or rewrite a long code block (>20 lines), you are **strictly forbidden** from generating it directly in the main chat conversation using your internal resources.
 2. **Always Delegate to Tools**:
    - To create a new file, gather detailed logical requirements first, then call the **`create_file`** tool with the full specifications.

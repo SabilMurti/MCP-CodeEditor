@@ -5,13 +5,31 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import fs from "fs/promises";
 import path from "path";
 import dotenv from "dotenv";
+import os from "os";
 
 import { fileURLToPath } from "url";
 
 // Load configuration relative to index.js location
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+
+const envPaths = [
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(os.homedir(), ".mcp-code-editor.env"),
+  path.resolve(__dirname, ".env")
+];
+
+for (const envPath of envPaths) {
+  try {
+    const stats = await fs.stat(envPath);
+    if (stats.isFile()) {
+      dotenv.config({ path: envPath });
+      break; // Stop after successfully loading the first found .env file
+    }
+  } catch (e) {
+    // File not found or other error, continue to next path
+  }
+}
 
 const API_URL = process.env.CODER_API_URL || "https://api.cometapi.com/v1/chat/completions";
 const API_KEY = process.env.CODER_API_KEY;
